@@ -17,10 +17,10 @@ parameters:
   description: Image name of the CiviCRM Docker Image to be deployed
   value: secoresearch/civicrm
 - name: COMMUNITY_IMAGE_TAG
-  description: Tag of the CiviCRM Community Docker Image to be deployed
+  description: Tag of the CiviCRM Docker Image to be deployed
   value: 'latest'
 - name: CIVICRM_HOST
-  description: Application URL of Nextcloud (Route/host)
+  description: Application URL of CiviCRM (Route/host)
   required: true
 - name: CIVICRM_DOCKERFILE_REPO
   description: CiviCRM Dockerfile source repository
@@ -42,60 +42,6 @@ parameters:
   value: ./docker
 objects:
 - apiVersion: v1
-  kind: ImageStream
-  metadata:
-    labels:
-      build: civicrm-app
-      app: civicrm
-    name: civicrm-app
-  spec:
-    tags:
-    - annotations: null
-      from:
-        kind: DockerImage
-        name: secoresearch/civicrm:latest
-      generation: null
-      importPolicy: {}
-      name: latest
-      referencePolicy:
-        type: ""
-- apiVersion: v1
-  kind: BuildConfig
-  metadata:
-    creationTimestamp: null
-    labels:
-      build: civicrm-app
-      app: civicrm
-    name: civicrm-app
-  spec:
-    nodeSelector:
-      appclass: main
-    output:
-      to:
-        kind: ImageStreamTag
-        name: community-app:latest
-    postCommit: {}
-    resources: {}
-    runPolicy: Serial
-    source:
-      git:
-        uri: ${CIVICRM_DOCKERFILE_REPO}
-        ref: ${GIT_BRANCH}
-      type: Git
-    strategy:
-      dockerStrategy:
-        from:
-          kind: ${COMMUNITY_IMAGE_KIND}
-          name: ${COMMUNITY_IMAGE_NAME}:${COMMUNITY_IMAGE_TAG}
-        buildArgs:
-          - name: COMMUNITY_IMAGE_TAG
-            value: '${COMMUNITY_IMAGE_TAG}'
-          - name: DOCKER_PATH
-            value: '${DOCKER_PATH}'
-      type: Docker
-    triggers:
-    - type: ConfigChange
-- apiVersion: v1
   kind: DeploymentConfig
   metadata:
     labels:
@@ -104,7 +50,7 @@ objects:
   spec:
     replicas: 1
     selector:
-      app: civicrm
+      app: secoresearch
       deploymentconfig: civicrm
     strategy:
       activeDeadlineSeconds: 21600
@@ -119,7 +65,7 @@ objects:
     template:
       metadata:
         labels:
-          app: civicrm
+          app: secoresearch
           deploymentconfig: civicrm
       spec:
         nodeSelector:
@@ -231,11 +177,10 @@ objects:
     - imageChangeParams:
         automatic: true
         containerNames:
-        - community-web
-        - community-worker
+        - civicrm
         from:
           kind: ImageStreamTag
-          name: community-app:latest
+          name: civicrm:latest
       type: ImageChange
     - type: ConfigChange
 - apiVersion: v1
