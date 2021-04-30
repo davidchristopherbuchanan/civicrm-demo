@@ -1,0 +1,275 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: CiviCRM
+  annotations:
+    description: "CiviCRM - Online Open-Source Fundraising Management"
+    tags: "fundraising,civicrm"
+    iconClass: fa-cloud-upload
+    template.openshift.io/provider-display-name: "davidchristopherbuchanan"
+    template.openshift.io/documentation-url: "https://github.com/davidchristopherbuchanan/civicrm-demo/blob/master/README.md"
+    template.openshift.io/support-url: "https://github.com/davidchristopherbuchanan/civicrm-demo/issues"
+parameters:
+- name: COMMUNITY_IMAGE_KIND
+  description: Kind of the CiviCRM Docker Image taken as source (DockerImage or ImageStreamTag)
+  value: DockerImage
+- name: COMMUNITY_IMAGE_NAME
+  description: Image name of the CiviCRM Docker Image to be deployed
+  value: secoresearch/civicrm
+- name: COMMUNITY_IMAGE_TAG
+  description: Tag of the CiviCRM Community Docker Image to be deployed
+  value: 'latest'
+- name: CIVICRM_HOST
+  description: Application URL of Nextcloud (Route/host)
+  required: true
+- name: CIVICRM_DOCKERFILE_REPO
+  description: CiviCRM Dockerfile source repository
+  value: https://github.com/davidchristopherbuchanan/civicrm-demo.git
+- name: GIT_BRANCH
+  description: branch in source repository
+  value: master
+- name: PVC_SIZE
+  description: PVC size for Apps, Config and Data
+  value: 4Gi
+- name: SECRET_KEY_BASE
+  description: Secret key for the CIVICRM instance
+  value: dkp-spielwiese
+- name: DATABASE_SECRET
+  description: Name of the secret with the database reference DATABASE_URL
+  value: civicrm-database-secret
+- name: DOCKER_PATH
+  description: Path to entrypoint inside docker image
+  value: ./docker
+objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      build: civicrm-app
+      app: civicrm
+    name: civicrm-app
+  spec:
+    tags:
+    - annotations: null
+      from:
+        kind: DockerImage
+        name: secoresearch/civicrm:latest
+      generation: null
+      importPolicy: {}
+      name: latest
+      referencePolicy:
+        type: ""
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    creationTimestamp: null
+    labels:
+      build: civicrm-app
+      app: civicrm
+    name: civicrm-app
+  spec:
+    nodeSelector:
+      appclass: main
+    output:
+      to:
+        kind: ImageStreamTag
+        name: community-app:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      git:
+        uri: ${CIVICRM_DOCKERFILE_REPO}
+        ref: ${GIT_BRANCH}
+      type: Git
+    strategy:
+      dockerStrategy:
+        from:
+          kind: ${COMMUNITY_IMAGE_KIND}
+          name: ${COMMUNITY_IMAGE_NAME}:${COMMUNITY_IMAGE_TAG}
+        buildArgs:
+          - name: COMMUNITY_IMAGE_TAG
+            value: '${COMMUNITY_IMAGE_TAG}'
+          - name: DOCKER_PATH
+            value: '${DOCKER_PATH}'
+      type: Docker
+    triggers:
+    - type: ConfigChange
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      app: civicrm
+    name: civicrm
+  spec:
+    replicas: 1
+    selector:
+      app: civicrm
+      deploymentconfig: civicrm
+    strategy:
+      activeDeadlineSeconds: 21600
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          app: civicrm
+          deploymentconfig: civicrm
+      spec:
+        nodeSelector:
+          appclass: main
+        containers:
+        - command:
+            - /app/docker/uid_entrypoint.sh
+          args:
+            - ${DOCKER_PATH}/entrypoint.sh
+            - ${DOCKER_PATH}/web
+          env:
+            - name: SECRET_KEY_BASE
+              value: ${SECRET_KEY_BASE}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: ${DATABASE_SECRET}
+            - name: RAILS_CACHE_STORE
+              value: memcache
+            - name: CACHE_MEMCACHE_SERVER
+              value: 'memcached.civicrm.svc:11211'
+            - name: PASSENGER_START_TIMEOUT
+              value: "120"
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 5
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 5
+          image: civicrm-app
+          imagePullPolicy: Always
+          name: civicrm-web
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/civicrm/assets
+              name: civicrm-data
+              subPath: assets
+        - command:
+            - /app/docker/uid_entrypoint.sh
+          args:
+            - ${DOCKER_PATH}/entrypoint.sh
+            - ${DOCKER_PATH}/worker
+          env:
+            - name: SECRET_KEY_BASE
+              value: ${SECRET_KEY_BASE}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: ${DATABASE_SECRET}
+            - name: RAILS_CACHE_STORE
+              value: memcache
+            - name: CACHE_MEMCACHE_SERVER
+              value: 'memcached.civicrm.svc:11211'
+            - name: PASSENGER_START_TIMEOUT
+              value: "120"
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 5
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 5
+          image: civicrm-app
+          imagePullPolicy: Always
+          name: civicrm-worker
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/civicrm/assets
+              name: civicrm-data
+              subPath: assets
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - name: civicrm-data
+          persistentVolumeClaim:
+            claimName: civicrm-data
+    test: false
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - community-web
+        - community-worker
+        from:
+          kind: ImageStreamTag
+          name: community-app:latest
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: civicrm
+    name: latest
+  spec:
+    ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: civicrm
+      deploymentconfig: latest
+    sessionAffinity: None
+    type: ClusterIP
+- apiVersion: v1
+  kind: Route
+  metadata:
+    labels:
+      app: civicrm
+    name: latest
+  spec:
+    host: ${CIVICRM_HOST}
+    port:
+      targetPort: http
+    tls:
+      insecureEdgeTerminationPolicy: Redirect
+      termination: edge
+    to:
+      kind: Service
+      name: latest
+      weight: 100
+    wildcardPolicy: None
