@@ -20,7 +20,7 @@ parameters:
   description: branch in source repository
   value: master
 - name: COMMUNITY_IMAGE_NAME
-  description: Image name of the CiviCRM Community Docker Image to be deployed
+  description: Image name of the CiviCRM Docker Image to be deployed
   value: secoresearch/civicrm
 - name: COMMUNITY_IMAGE_TAG
   description: Tag of the CiviCRM Docker Image to deploy
