@@ -7,15 +7,15 @@ metadata:
     tags: "fundraising,civicrm"
     iconClass: fa-cloud-upload
     template.openshift.io/provider-display-name: "davidchristopherbuchanan"
-    template.openshift.io/documentation-url: "https://github.com/davidchristopherbuchanan/civicrm-openshift/blob/master/README.md"
-    template.openshift.io/support-url: "https://github.com/davidchristopherbuchanan/civicrm-openshift/issues"
+    template.openshift.io/documentation-url: "https://github.com/davidchristopherbuchanan/civicrm-demo/blob/master/README.md"
+    template.openshift.io/support-url: "https://github.com/davidchristopherbuchanan/civicrm-demo/issues"
 parameters:
 - name: CIVICRM_HOST
   description: Application URL of CiviCRM (Route/host)
   required: true
 - name: JENKINSFILE_REPO
   description: Jenkins source repository
-  value: https://github.com/davidchristopherbuchanan/civicrm-openshift.git
+  value: https://github.com/davidchristopherbuchanan/civicrm-demo.git
 - name: GIT_BRANCH
   description: branch in source repository
   value: master
