@@ -1,3 +1,66 @@
-An OpenShift template for CiviCRM from secoresearch.
-
-First use for testing...
+apiVersion: v1
+kind: Template
+metadata:
+  name: civicrm
+  annotations:
+    description: "CiviCRM - Online Open-Source Fund Raising Management"
+    tags: "fundraising,civicrm"
+    iconClass: fa-cloud-upload
+    template.openshift.io/provider-display-name: "davidchristopherbuchanan"
+    template.openshift.io/documentation-url: "https://github.com/davidchristopherbuchanan/civicrm-openshift/blob/master/README.md"
+    template.openshift.io/support-url: "https://github.com/davidchristopherbuchanan/civicrm-openshift/issues"
+parameters:
+- name: CIVICRM_HOST
+  description: Application URL of CiviCRM (Route/host)
+  required: true
+- name: JENKINSFILE_REPO
+  description: Jenkins source repository
+  value: https://github.com/davidchristopherbuchanan/civicrm-openshift.git
+- name: GIT_BRANCH
+  description: branch in source repository
+  value: master
+- name: COMMUNITY_IMAGE_NAME
+  description: Image name of the CiviCRM Community Docker Image to be deployed
+  value: secoresearch/civicrm
+- name: COMMUNITY_IMAGE_TAG
+  description: Tag of the CiviCRM Docker Image to deploy
+  value: "latest"
+- name: BUILD_FORK_IMAGE
+  description: Care for a forked CiviCRM repository
+  value: "false"
+- name: DATABASE_SECRET
+  description: Name of the secret with the database reference DATABASE_URL
+  value: civicrm-database-secret
+- name: PVC_SIZE
+  description: PVC size for Apps, Config and Data
+  value: 4Gi
+objects:
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+    name: update-pipeline
+  name: update-pipeline
+  spec:
+    source:
+      type: Git
+      git:
+        uri: "${JENKINSFILE_REPO}"
+        ref: "${GIT_BRANCH}"
+    strategy:
+      type: JenkinsPipeline
+      jenkinsPipelineStrategy:
+        jenkinsfilePath: Jenkinsfile
+        env:
+          - name: CIVICRM_HOST
+            value: "${CIVICRM_HOST}"
+          - name: COMMUNITY_IMAGE_NAME
+            value: "${COMMUNITY_IMAGE_NAME}"
+          - name: COMMUNITY_IMAGE_TAG
+            value: "${COMMUNITY_IMAGE_TAG}"
+          - name: BUILD_FORK_IMAGE
+            value: "${BUILD_FORK_IMAGE}"
+          - name: DATABASE_SECRET
+            value: "${DATABASE_SECRET}"
+          - name: PVC_SIZE
+            value: "${PVC_SIZE}"
